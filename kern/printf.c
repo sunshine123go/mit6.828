@@ -10,7 +10,7 @@ static void
 putch(int ch, int *cnt)
 {
 	cputchar(ch);
-	*cnt++;
+	(*cnt)++;
 }
 
 int
@@ -35,3 +35,24 @@ cprintf(const char *fmt, ...)
 	return cnt;
 }
 
+static void
+putch_color(int ch, int *color)
+{
+	ch |= (*color) << 8;
+	cputchar(ch);
+}
+
+void vcprintf_color(real_color_t back, real_color_t front, const char *fmt, va_list ap)
+{
+	int color;
+	color = (back << 4) | (front & 0xF);
+	vprintfmt((void *)putch_color, &color, fmt, ap);
+}
+void
+cprintf_color(real_color_t back, real_color_t front, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vcprintf_color(back, front, fmt, ap);
+	va_end(ap);
+}
