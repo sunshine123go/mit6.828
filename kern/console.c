@@ -154,8 +154,9 @@ cga_init(void)
 	outb(addr_6845, 15);
 	pos |= inb(addr_6845 + 1);
 
+	// 读写屏幕的缓存区
 	crt_buf = (uint16_t*) cp;
-	crt_pos = pos;
+	crt_pos = pos;	// 光标位置
 }
 
 
@@ -164,6 +165,7 @@ static void
 cga_putc(int c)
 {
 	// if no attribute given, then use black on white
+	// c的高8位为颜色属性
 	if (!(c & ~0xFF))
 		c |= 0x0700;
 
@@ -193,9 +195,10 @@ cga_putc(int c)
 	}
 
 	// What is the purpose of this?
+	// 实现滚屏
 	if (crt_pos >= CRT_SIZE) {
 		int i;
-
+		// 上移一行
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
 			crt_buf[i] = 0x0700 | ' ';

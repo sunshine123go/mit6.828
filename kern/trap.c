@@ -29,7 +29,7 @@ struct Gatedesc idt[256] = { { 0 } };
 struct Pseudodesc idt_pd = {
 	sizeof(idt) - 1, (uint32_t) idt
 };
-
+extern uint32_t vectors[];
 
 static const char *trapname(int trapno)
 {
@@ -72,6 +72,12 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+	for (int i = 0; i < 256; ++i) {
+		SETGATE(idt[i], 0, GD_KT, vectors[i], 0);
+	}
+	// syscall is user DPL
+	SETGATE(idt[T_SYSCALL], 1, GD_KT, vectors[T_SYSCALL], 3);
+	SETGATE(idt[T_BRKPT], 1, GD_KT, vectors[T_BRKPT], 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -187,13 +193,32 @@ trap_dispatch(struct Trapframe *tf)
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
 
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
+	switch (tf->tf_trapno) {
+
+	case T_SYSCALL:
+	{
+		tf->tf_regs.reg_eax =
+				syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx,
+						tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+		break;
+	}
+	case T_PGFLT:
+		page_fault_handler(tf);
+		break;
+
+	case T_BRKPT:
+		monitor(tf);
+		break;
+
+	default:
+		// Unexpected trap: The user process or the kernel has a bug.
+		print_trapframe(tf);
+		if (tf->tf_cs == GD_KT)
+			panic("unhandled trap in kernel");
+		else {
+			env_destroy(curenv);
+			return;
+		}
 	}
 }
 
@@ -235,6 +260,8 @@ trap(struct Trapframe *tf)
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
 		// will restart at the trap point.
+		// my note: the curenv have lead to the interrupt, so its status should have been the tf
+		// the tf is on the tss stack
 		curenv->env_tf = *tf;
 		// The trapframe on the stack should be ignored from here on.
 		tf = &curenv->env_tf;
@@ -247,6 +274,7 @@ trap(struct Trapframe *tf)
 	// Dispatch based on what type of trap occurred
 	trap_dispatch(tf);
 
+//<<<<<<< HEAD
 	// If we made it to this point, then no other environment was
 	// scheduled, so we should return to the current environment
 	// if doing so makes sense.
@@ -254,6 +282,13 @@ trap(struct Trapframe *tf)
 		env_run(curenv);
 	else
 		sched_yield();
+//=======
+//	// Return to the current environment, which should be running.
+//	assert(curenv && curenv->env_status == ENV_RUNNING);
+//	// my note: the env_run invoke the env_pop_tf to return from interrupt
+//	// invoke the env_run is just for return to the user space
+//	env_run(curenv);
+//>>>>>>> lab3
 }
 
 
@@ -268,6 +303,10 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+	if ((tf->tf_cs & 0x3) == 0) {
+		print_trapframe(tf);
+		panic("page faults in kernel, at 0x%x", fault_va);
+	}
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
