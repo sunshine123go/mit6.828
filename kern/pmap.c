@@ -58,7 +58,7 @@ i386_detect_memory(void)
 // Set up memory mappings above UTOP.
 // --------------------------------------------------------------
 
-static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
+void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
 static void check_page_free_list(bool only_low_memory);
 static void check_page_alloc(void);
 static void check_kern_pgdir(void);
@@ -157,6 +157,8 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+    envs = (struct Env *)boot_alloc(sizeof (struct Env) * NENV);
+    memset(envs, 0, sizeof (struct Env) * NENV);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -180,6 +182,9 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+
+	// my note: by the map, you can access this physics memory by the virtual, but need the permission
+	// the map only alloc the page entry's memory, rather than the memory it actually use
 	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -188,7 +193,7 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
-
+	boot_map_region(kern_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_U | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -419,7 +424,8 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
-static void
+// remove the static for the use of env.c's env_set_up_vm
+void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
@@ -579,6 +585,29 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
 
+	uintptr_t va_start = (uintptr_t)ROUNDDOWN((char *)va, PGSIZE);
+	uintptr_t va_end = (uintptr_t)ROUNDUP((char *)va + len, PGSIZE);
+	int num = (va_end - va_start) / PGSIZE;
+	int idx;
+	for ( idx = 0; idx < num; ++idx, va_start += PGSIZE) {
+		if (va_start >= ULIM) {
+			user_mem_check_addr = idx ? va_start : (uintptr_t)va;
+			return -E_FAULT;
+		}
+		// check the pde's permission
+		pde_t *pde = &(env->env_pgdir[PDX(va_start)]);
+		if ((*pde & (perm | PTE_P)) != (perm | PTE_P)) {
+			user_mem_check_addr = idx ? va_start : (uintptr_t)va;
+			return -E_FAULT;
+		}
+		// check the pte's premission
+		pte_t *pte;
+		if ((pte = pgdir_walk(env->env_pgdir, (void *)va_start, 0)) == NULL
+				|| (*pte & (perm | PTE_P)) != (perm | PTE_P)) {
+			user_mem_check_addr = idx ? va_start : (uintptr_t)va;
+			return -E_FAULT;
+		}
+	}
 	return 0;
 }
 
