@@ -194,17 +194,8 @@ env_setup_vm(struct Env *e)
 	++p->pp_ref;
 	e->env_pgdir = page2kva(p);
 
-	// don't use it ususlly
-	void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
-
-	boot_map_region(e->env_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U | PTE_P);
-
-	boot_map_region(e->env_pgdir, UENVS, PTSIZE, PADDR(envs), PTE_U | PTE_P);
-
-	boot_map_region(e->env_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
-
-	boot_map_region(e->env_pgdir, KERNBASE, 0x10000000, 0, PTE_W | PTE_P);
-
+	// map the kernel address space
+	memmove(e->env_pgdir, kern_pgdir, PGSIZE);
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
 	e->env_pgdir[PDX(UVPT)] = PADDR(e->env_pgdir) | PTE_P | PTE_U;
@@ -269,6 +260,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+	e->env_tf.tf_eflags |= FL_IF;
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -446,7 +438,6 @@ env_create(uint8_t *binary, enum EnvType type)
 		panic("env_create error: %e", err);
 	}
 	e->env_type = type;
-
 	load_icode(e, binary);
 }
 
@@ -591,6 +582,7 @@ env_run(struct Env *e)
 		++curenv->env_runs;
 		lcr3(PADDR(curenv->env_pgdir));
 	}
+	unlock_kernel();
 	env_pop_tf(&(curenv->env_tf));
 
 	panic("env_run not yet implemented");

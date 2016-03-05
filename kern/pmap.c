@@ -60,7 +60,7 @@ i386_detect_memory(void)
 // --------------------------------------------------------------
 
 static void mem_init_mp(void);
-void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
+static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
 static void check_page_free_list(bool only_low_memory);
 static void check_page_alloc(void);
 static void check_kern_pgdir(void);
@@ -207,7 +207,7 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
+//	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -220,7 +220,7 @@ mem_init(void)
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
 
-//	boot_map_region(kern_pgdir, KERNBASE, 0x10000000, 0, PTE_W | PTE_P);
+	boot_map_region(kern_pgdir, KERNBASE, 0x10000000, 0, PTE_W | PTE_P);
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -268,7 +268,9 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	for (int i = 0; i < NCPU; ++i) {
+		boot_map_region(kern_pgdir, KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W | PTE_P);
+	}
 }
 
 // --------------------------------------------------------------
@@ -320,6 +322,9 @@ page_init(void)
         if (i == 0) {
             pages[i].pp_ref = 1;
             continue;
+        } else if (i == MPENTRY_PADDR / PGSIZE) {
+        	pages[i].pp_ref = 1;
+        	continue;
         } else if (i < npages_basemem) {
             pages[i].pp_ref = 0;
             pages[i].pp_link = page_free_list;
@@ -459,8 +464,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
-// remove the static for the use of env.c's env_set_up_vm
-void
+static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
@@ -475,6 +479,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 	for (vva = va, ppa = pa; size > 0; vva += PGSIZE, ppa += PGSIZE, size -= PGSIZE) {
 
 		assert(pte = pgdir_walk(pgdir, (void *)vva, 1));
+		assert((*pte & PTE_P) == 0);
 
 		*pte = ppa | perm | PTE_P;
 	}
@@ -627,7 +632,17 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	physaddr_t pa_start = ROUNDDOWN(pa, PGSIZE);
+	physaddr_t pa_end = ROUNDUP(pa + size, PGSIZE);
+	size_t len = pa_end - pa_start;
+	if (base + len >= MMIOLIM) {
+		panic("mmio_map_region more than the MMIOLIM");
+	}
+	boot_map_region(kern_pgdir, base, len, pa_start, PTE_PCD|PTE_PWT|PTE_W);
+
+	base += len;
+	return (void *)(base - len);
+//	panic("mmio_map_region not implemented");
 }
 
 static uintptr_t user_mem_check_addr;
