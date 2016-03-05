@@ -84,7 +84,7 @@ getint(va_list *ap, int lflag)
 		return va_arg(*ap, int);
 }
 
-
+// 接口与实现分离，传入不同的putch和putdat来实现不同的功能，提高扩展性
 // Main function to format and print a string.
 void printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...);
 
@@ -143,7 +143,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		case '*':
 			precision = va_arg(ap, int);
-			goto process_precision;
+			goto reswitch;
 
 		case '.':
 			if (width < 0)
@@ -215,10 +215,13 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+//			putch('X', putdat);
+//			putch('X', putdat);
+//			putch('X', putdat);
+//			break;
+			num = getuint(&ap, lflag);
+			base = 8;
+			goto number;
 
 		// pointer
 		case 'p':
@@ -279,6 +282,7 @@ sprintputch(int ch, struct sprintbuf *b)
 int
 vsnprintf(char *buf, int n, const char *fmt, va_list ap)
 {
+	// 使用事先分配好的缓存区
 	struct sprintbuf b = {buf, buf+n-1, 0};
 
 	if (buf == NULL || n < 1)

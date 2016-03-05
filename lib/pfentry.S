@@ -66,17 +66,26 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
 
+	// push trap-time %eip onto the trap-time stack
+	movl 48(%esp), %eax			// the trap-time esp
+	movl 40(%esp), %edx			// the trap-time eip
+	subl $4, %eax
+	movl %edx, (%eax)			// mov the eip onto the stack
+	movl %eax, 48(%esp)			// sub esp to the current trap-time stack top
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
-
+	addl $8, %esp	// skip the fault_va and the tf_err
+	popal			// pop the PushRegs
+	add $4, %esp	// skip the %eip
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
-
+	popfl		// restore eflags
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
-
+	popl %esp
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	ret
