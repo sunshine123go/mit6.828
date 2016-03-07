@@ -67,6 +67,8 @@ openfile_alloc(struct OpenFile **o)
 	int i, r;
 
 	// Find an available open-file table entry
+	// Because the opentab[i].o_fd is share between the server and the client
+	// so if the opentab[i].o_fd >= 2, it's used now
 	for (i = 0; i < MAXOPEN; i++) {
 		switch (pageref(opentab[i].o_fd)) {
 		case 0:
@@ -214,7 +216,20 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
-	return 0;
+	struct OpenFile *o;
+	int r;
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		return r;
+	}
+	int count = req->req_n;
+	if ((r = file_read(o->o_file, ret->ret_buf, count, o->o_fd->fd_offset)) < 0) {
+		return r;
+	}
+	ret->ret_buf[r] = 0;
+	o->o_fd->fd_offset += r;
+
+	return r;
 }
 
 
@@ -229,7 +244,18 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
-	panic("serve_write not implemented");
+	struct OpenFile *o;
+	int r;
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		return r;
+	}
+	if ((r = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset)) < 0) {
+		return r;
+	}
+	o->o_fd->fd_offset += r;
+
+	return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the

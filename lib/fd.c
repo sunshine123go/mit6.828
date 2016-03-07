@@ -11,7 +11,7 @@
 #define FILEDATA	(FDTABLE + MAXFD*PGSIZE)
 
 // Return the 'struct Fd*' for file descriptor index i
-#define INDEX2FD(i)	((struct Fd*) (FDTABLE + (i)*PGSIZE))
+#define INDEX2FD(i)	  ((struct Fd*) (FDTABLE + (i)*PGSIZE))
 // Return the file data page for file descriptor index i
 #define INDEX2DATA(i)	((char*) (FILEDATA + (i)*PGSIZE))
 

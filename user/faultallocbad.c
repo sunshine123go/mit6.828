@@ -1,5 +1,7 @@
 // test user-level fault handler -- alloc pages to fix faults
 // doesn't work because we sys_cputs instead of cprintf (exercise: why?)
+// answer: the sys_cputs directly access the addr, but there is a user_mem_assert() in the sys_cputs lead to the panic
+// and in the cprintf, it will access the addr directly, lead to a pagefault
 
 #include <inc/lib.h>
 

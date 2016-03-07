@@ -16,3 +16,6 @@
 /sol?/
 /myapi.key
 .suf
+.cproject
+.project
+*.udb

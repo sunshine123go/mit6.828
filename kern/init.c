@@ -35,6 +35,7 @@ i386_init(void)
 	cons_init();
 
 	cprintf("6828 decimal is %o octal!\n", 6828);
+	cprintf_color(rc_black, rc_red, "Hello, Os kernel!\n");
 
 	// Lab 2 memory management initialization functions
 	mem_init();
@@ -56,7 +57,7 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-
+	lock_kernel();
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -133,9 +134,10 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-
+	lock_kernel();
+	sched_yield();
 	// Remove this after you finish Exercise 4
-	for (;;);
+//	for (;;);
 }
 
 /*
