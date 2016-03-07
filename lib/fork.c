@@ -44,7 +44,6 @@ pgfault(struct UTrapframe *utf)
 	if ((r = sys_page_unmap(0, (void *)PFTEMP)) < 0) {
 		panic("sys_page_unmap: %e", r);
 	}
-//	panic("pgfault not implemented");
 }
 
 //
@@ -64,7 +63,11 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
+	if (uvpt[pn] & PTE_SHARE) {
+		if ((r = sys_page_map(0, (void *)(pn * PGSIZE), envid, (void *)(pn * PGSIZE), PTE_SYSCALL|PTE_SHARE)) < 0) {
+			panic("sys_page_map: %e", r);
+		}
+	} else if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
 		if ((r = sys_page_map(0, (void *)(pn * PGSIZE), envid, (void *)(pn * PGSIZE), PTE_U|PTE_P|PTE_COW)) < 0
 				|| (r = sys_page_map(envid, (void *)(pn * PGSIZE), 0, (void *)(pn * PGSIZE), PTE_U|PTE_P|PTE_COW)) < 0) {
 			panic("sys_page_map: %e", r);
@@ -74,7 +77,6 @@ duppage(envid_t envid, unsigned pn)
 			panic("sys_page_map: %e", r);
 		}
 	}
-//	panic("duppage not implemented");
 	return 0;
 }
 
@@ -138,7 +140,6 @@ fork(void)
 	}
 
 	return envid;
-//	panic("fork not implemented");
 }
 
 // Challenge!

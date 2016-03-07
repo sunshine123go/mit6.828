@@ -268,6 +268,7 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 
 	//cprintf("map_segment %x+%x\n", va, memsz);
 
+	// pgge align
 	if ((i = PGOFF(va))) {
 		va -= i;
 		memsz += i;
@@ -301,6 +302,20 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	uint32_t pd, pt, pn;
+	for (pd = 0; pd < PDX(UTOP); ++pd) {
+		if (uvpd[pd] & PTE_P) {
+			for (pt = 0; pt < NPTENTRIES; ++pt) {
+				pn = pd * NPTENTRIES + pt;
+				if ((uvpt[pn] & (PTE_P|PTE_U)) == (PTE_P|PTE_U)
+						&& (uvpt[pn] & PTE_SHARE)) {
+					if (sys_page_map(0, (void *)(pn * PGSIZE), child, (void *)(pn * PGSIZE), PTE_SYSCALL|PTE_SHARE) < 0) {
+						panic("sys_page_map error in copy_shared_pages!");
+					}
+				}
+			}
+		}
+	}
 	return 0;
 }
 
