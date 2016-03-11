@@ -122,3 +122,15 @@ sys_time_msec(void)
 {
 	return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
 }
+
+int
+sys_try_trans_pack(const char *buf, uint32_t len)
+{
+    return syscall(SYS_try_trans_pack, 0, (uint32_t)buf, len, 0, 0, 0);
+}
+
+int
+sys_recv_pack(char *buf, uint32_t len)
+{
+    return syscall(SYS_recv_pack, 0, (uint32_t)buf, len, 0, 0, 0);
+}

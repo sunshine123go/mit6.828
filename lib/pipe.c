@@ -79,6 +79,9 @@ _pipeisclosed(struct Fd *fd, struct Pipe *p)
 
 	while (1) {
 		n = thisenv->env_runs;
+        // one end id only open read, the other is only open write
+        // if the read is closed, then the other end is only have one ref of write fd page and one data page ref
+        // otherwise, the data page's ref will be twice of the fd page;
 		ret = pageref(fd) == pageref(p);
 		nn = thisenv->env_runs;
 		if (n == nn)

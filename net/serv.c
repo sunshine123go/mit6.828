@@ -183,6 +183,11 @@ struct st_args {
 	union Nsipc *req;
 };
 
+// it's as the ipc dispatcher
+// when need send data, it invoke send, then through the lwIP network stack to do some work for the packet, such as add the tcp and ip header,
+// the lwIP use the call back function to infrom the output environment to output the IP datagram
+// when the net card receive a IP datagram, the it infrom the dispatcher by the input environment, and the dispatcher use the lwIP to remove the heaser of the datagram
+// then return to the user
 static void
 serve_thread(uint32_t a) {
 	struct st_args *args = (struct st_args *)a;

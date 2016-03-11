@@ -23,6 +23,8 @@
  */
 static struct Trapframe *last_tf;
 
+static struct spinlock tickslock;
+
 /* Interrupt descriptor table.  (Must be built at run time because
  * shifted function addresses can't be represented in relocation records.)
  */
@@ -77,10 +79,11 @@ trap_init(void)
 		SETGATE(idt[i], 0, GD_KT, vectors[i], 0);
 	}
 	// syscall is user DPL
+    // we will disable interrupt during the syscall for easy
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, vectors[T_SYSCALL], 3);
 	SETGATE(idt[T_BRKPT], 0, GD_KT, vectors[T_BRKPT], 3);
 
-	// Per-CPU setup 
+	// Per-CPU setup
 	trap_init_percpu();
 }
 
@@ -201,7 +204,6 @@ trap_dispatch(struct Trapframe *tf)
 	// triggered on every CPU.
 	// LAB 6: Your code here.
 
-
 	// Handle keyboard and serial interrupts.
 	// LAB 5: Your code here.
 
@@ -216,6 +218,13 @@ trap_dispatch(struct Trapframe *tf)
 	}
 	case IRQ_OFFSET + IRQ_TIMER:
 		lapic_eoi();
+        // each cpu has a clock interrupt source, wo only increment it use one
+        if (thiscpu->cpu_id == 0) {
+            // since we now use a kernel lock, so it look like we needn't the tickslock;
+            spin_lock(&tickslock);
+            time_tick();
+            spin_unlock(&tickslock);
+        }
 		sched_yield();
 		break;
 	case IRQ_OFFSET + IRQ_KBD:

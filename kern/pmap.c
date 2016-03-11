@@ -10,6 +10,7 @@
 #include <kern/kclock.h>
 #include <kern/env.h>
 #include <kern/cpu.h>
+#include <kern/e1000.h>
 
 // These variables are set by i386_detect_memory()
 size_t npages;			// Amount of physical memory (in pages)
@@ -161,6 +162,14 @@ mem_init(void)
 	// LAB 3: Your code here.
     envs = (struct Env *)boot_alloc(sizeof (struct Env) * NENV);
     memset(envs, 0, sizeof (struct Env) * NENV);
+
+    // note: my lab6 code, alloc the transmit descriptor
+    tx_desc = (struct tx_desc *)boot_alloc(sizeof (struct tx_desc) * NTXDES);
+    memset(tx_desc, 0, sizeof (struct tx_desc) * NTXDES);
+
+    // alloc the packet buffers
+    tx_bufs = (struct pack_buf *)boot_alloc(sizeof (struct pack_buf) * NTXDES);
+    memset(tx_bufs, 0, sizeof (struct pack_buf) * NTXDES);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
